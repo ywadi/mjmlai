@@ -47,6 +47,69 @@ import AssetPanel from './assets/AssetPanel.astro';
 
   let editorView: EditorView;
 
+  // Default MJML template
+  const defaultMJML = `<mjml>
+  <mj-body>
+    <mj-section>
+      <mj-column>
+        <mj-text>
+          Hello World!
+        </mj-text>
+      </mj-column>
+    </mj-section>
+  </mj-body>
+</mjml>`;
+
+  // Function to format XML/MJML
+  function formatXml(xml: string) {
+    let formatted = '';
+    let indent = '';
+    const tab = '  '; // 2 spaces for indentation
+    xml.split(/>\s*</).forEach(function(node) {
+      if (node.match(/^\/\w/)) {
+        // Closing tag
+        indent = indent.substring(tab.length);
+      }
+      formatted += indent + '<' + node + '>\n';
+      if (node.match(/^<?\w[^>]*[^\/]$/)) {
+        // Opening tag
+        indent += tab;
+      }
+    });
+    return formatted.substring(1, formatted.length - 2);
+  }
+
+  // Function to trigger preview update
+  function triggerPreviewUpdate(content: string) {
+    const updateEvent = new CustomEvent('editorChange', {
+      detail: { content }
+    });
+    window.dispatchEvent(updateEvent);
+
+    // Also emit current content for other components
+    const contentUpdateEvent = new CustomEvent('editorContentChanged', {
+      detail: { content }
+    });
+    window.dispatchEvent(contentUpdateEvent);
+  }
+
+  // Function to get current editor content
+  function getCurrentContent() {
+    if (!editorView) return defaultMJML;
+    const content = editorView.state.doc.toString();
+    return content || defaultMJML;
+  }
+
+  // Expose current content through a custom event
+  window.addEventListener('getEditorContent', ((event: CustomEvent) => {
+    const content = getCurrentContent();
+    console.log('Sending editor content:', content); // Debug log
+    const responseEvent = new CustomEvent('editorContentResponse', {
+      detail: { content }
+    });
+    window.dispatchEvent(responseEvent);
+  }) as EventListener);
+
   // Initialize editor after DOM load
   document.addEventListener('DOMContentLoaded', () => {
     const editor = document.getElementById('editor');
@@ -96,21 +159,6 @@ import AssetPanel from './assets/AssetPanel.astro';
       }
     });
 
-    const defaultMJML = `<mjml>
-      <mj-head>
-        <mj-attributes>
-          <mj-text font-family="helvetica" />
-        </mj-attributes>
-      </mj-head>
-      <mj-body>
-        <mj-section>
-          <mj-column>
-            <mj-text>Hello World</mj-text>
-          </mj-column>
-        </mj-section>
-      </mj-body>
-    </mjml>`;
-
     // Initialize CodeMirror
     editorView = new EditorView({
       doc: defaultMJML,
@@ -120,11 +168,45 @@ import AssetPanel from './assets/AssetPanel.astro';
         oneDark,
         EditorView.theme({
           '&': { height: '100%' },
-          '.cm-scroller': { overflow: 'auto' }
-        })
+          '.cm-scroller': { overflow: 'auto' },
+          '.cm-content': { minHeight: '100%' },
+        }),
+        EditorView.updateListener.of(update => {
+          if (update.docChanged) {
+            const content = update.state.doc.toString();
+            console.log('Editor content updated:', content); // Debug log
+            triggerPreviewUpdate(content);
+          }
+        }),
       ],
       parent: editor
     });
+
+    // Emit initial content
+    const initialContent = getCurrentContent();
+    triggerPreviewUpdate(initialContent);
+
+    // Listen for content update events from chat
+    window.addEventListener('updateEditor', ((event: CustomEvent) => {
+      console.log('Received updateEditor event:', event.detail);
+      if (event.detail && event.detail.content && editorView) {
+        console.log('Updating editor content to:', event.detail.content);
+        
+        // Format the MJML content
+        const formattedContent = formatXml(event.detail.content);
+        
+        // Update editor content
+        const currentPos = editorView.state.doc.length;
+        editorView.dispatch({
+          changes: { from: 0, to: currentPos, insert: formattedContent }
+        });
+
+        // Trigger preview update using window
+        triggerPreviewUpdate(formattedContent);
+        
+        console.log('Editor update complete');
+      }
+    }) as EventListener);
 
     // Function to dispatch editor content
     const dispatchContent = (content: string) => {
