@@ -1,0 +1,88 @@
+---
+---
+
+<div class="preview-header">
+  <button class="preview-button" data-view="desktop">
+    <i class="ph ph-monitor"></i>
+    Desktop
+  </button>
+  <button class="preview-button" data-view="mobile">
+    <i class="ph ph-device-mobile"></i>
+    Mobile
+  </button>
+  <button class="preview-button" data-view="code">
+    <i class="ph ph-code"></i>
+    HTML
+  </button>
+</div>
+
+<style>
+  .preview-button {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 0.5rem 1rem;
+    border-radius: 6px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    transition: all 0.2s ease;
+    font-size: 0.875rem;
+  }
+
+  .preview-button:hover {
+    background: var(--primary-hover);
+    border-color: var(--primary-hover);
+  }
+
+  .preview-button.active {
+    background: var(--primary);
+    border-color: var(--primary);
+  }
+
+  .preview-button i {
+    font-size: 1.25rem;
+  }
+
+  .preview-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+  }
+</style>
+
+<script>
+  const previewButtons = document.querySelectorAll('.preview-button');
+  let currentView = 'desktop';
+
+  // Function to dispatch preview mode change
+  const dispatchPreviewMode = (mode) => {
+    const event = new CustomEvent('previewModeChange', {
+      detail: { mode }
+    });
+    window.dispatchEvent(event);
+  };
+
+  // Set initial active button and dispatch initial mode
+  const desktopButton = document.querySelector('[data-view="desktop"]');
+  desktopButton?.classList.add('active');
+  
+  // Dispatch initial mode after a short delay
+  setTimeout(() => {
+    dispatchPreviewMode('desktop');
+  }, 50);
+
+  // Preview mode buttons
+  previewButtons.forEach(button => {
+    button.addEventListener('click', () => {
+      previewButtons.forEach(btn => btn.classList.remove('active'));
+      button.classList.add('active');
+      currentView = button.dataset.view;
+      dispatchPreviewMode(currentView);
+    });
+  });
+</script>

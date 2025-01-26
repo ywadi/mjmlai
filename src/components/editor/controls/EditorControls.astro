@@ -1,0 +1,69 @@
+---
+---
+
+<div class="editor-controls">
+  <div class="controls-group">
+    <button class="control-button" id="assetsButton" aria-label="Toggle assets">
+      <i class="ph ph-image"></i>
+      <span>Assets</span>
+    </button>
+    <button class="control-button" aria-label="Editor settings">
+      <i class="ph ph-gear"></i>
+    </button>
+  </div>
+</div>
+
+<script>
+  const assetsButton = document.getElementById('assetsButton');
+
+  // Toggle between editor and assets view
+  assetsButton?.addEventListener('click', () => {
+    assetsButton.classList.toggle('active');
+    
+    // Dispatch custom event for view toggle
+    window.dispatchEvent(new CustomEvent('toggleEditorView', {
+      detail: { showAssets: assetsButton.classList.contains('active') }
+    }));
+  });
+</script>
+
+<style>
+  .editor-controls {
+    display: flex;
+    align-items: center;
+    padding: 0.5rem;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .controls-group {
+    display: flex;
+    gap: 0.5rem;
+  }
+
+  .control-button {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: transparent;
+    color: var(--text);
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+
+  .control-button:hover,
+  .control-button.active {
+    background: var(--primary-hover);
+  }
+
+  .control-button i {
+    font-size: 1.25rem;
+  }
+
+  .control-button span {
+    font-size: 0.875rem;
+  }
+</style>

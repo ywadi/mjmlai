@@ -1,0 +1,307 @@
+---
+---
+
+<div id="assetsPanel" class="assets-panel">
+  <div class="assets-content">
+    <div class="upload-zone" id="uploadZone">
+      <input type="file" id="fileInput" multiple class="file-input" />
+      <i class="ph ph-upload-simple"></i>
+      <p>Drag files here or click to upload</p>
+    </div>
+    <div class="assets-list" id="assetsList">
+      <!-- Assets will be populated here -->
+    </div>
+  </div>
+</div>
+
+<style is:global>
+  .assets-panel {
+    width: 0;
+    background: var(--background);
+    border-right: 1px solid var(--border);
+    overflow: hidden;
+    transition: width 0.3s ease;
+  }
+
+  .assets-panel.show {
+    width: 300px;
+  }
+
+  .assets-content {
+    width: 300px;
+    height: 100%;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    padding: 1rem;
+  }
+
+  .upload-zone {
+    border: 2px dashed var(--border);
+    border-radius: 8px;
+    padding: 1.5rem;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+
+  .upload-zone.dragover {
+    border-color: var(--primary);
+    background: var(--primary-hover);
+  }
+
+  .upload-zone i {
+    font-size: 2rem;
+    color: var(--text);
+    opacity: 0.5;
+    margin-bottom: 0.5rem;
+  }
+
+  .upload-zone p {
+    margin: 0;
+    font-size: 0.875rem;
+    color: var(--text);
+    opacity: 0.8;
+  }
+
+  .file-input {
+    display: none;
+  }
+
+  .assets-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    padding: 1rem;
+    overflow-y: auto;
+  }
+
+  .asset-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 120px;
+    padding: 0.75rem;
+    border-radius: 4px;
+    background: transparent;
+    transition: background 0.2s ease;
+  }
+
+  .asset-item:hover {
+    background: var(--surface);
+  }
+
+  .asset-preview {
+    width: 120px;
+    height: 120px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    background: var(--background);
+    border-radius: 4px;
+    overflow: hidden;
+    position: relative;
+  }
+
+  .asset-preview img {
+    height: 120px;
+    width: auto;
+    max-width: none;
+  }
+
+  .asset-preview i.preview-icon {
+    font-size: 3rem;
+    color: var(--text);
+    opacity: 0.7;
+  }
+
+  .asset-preview .overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.7);
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+    pointer-events: none;
+  }
+
+  .asset-preview:hover .overlay {
+    opacity: 1;
+    pointer-events: all;
+  }
+
+  .asset-preview .asset-actions {
+    display: flex;
+    gap: 0.5rem;
+  }
+
+  .asset-action {
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    border: none;
+    background: rgba(255, 255, 255, 0.1);
+    color: white;
+    cursor: pointer;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+  }
+
+  .asset-action:hover {
+    background: rgba(255, 255, 255, 0.2);
+    transform: scale(1.1);
+  }
+
+  .asset-action.copy-url {
+    color: #a5b4fc;
+  }
+
+  .asset-action.insert {
+    color: #86efac;
+  }
+
+  .asset-action.delete {
+    color: #fca5a5;
+  }
+
+  .asset-action i {
+    font-size: 1rem;
+  }
+
+  .asset-info {
+    width: 100%;
+    margin-top: 0.5rem;
+    text-align: center;
+  }
+
+  .asset-name {
+    font-size: 0.75rem;
+    display: block;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: var(--text);
+    max-width: 120px;
+  }
+</style>
+
+<script>
+  const uploadZone = document.getElementById('uploadZone');
+  const fileInput = document.getElementById('fileInput');
+  const assetsList = document.getElementById('assetsList');
+  const assetsPanel = document.getElementById('assetsPanel');
+  const editor = document.getElementById('editor');
+
+  // Handle view toggling
+  window.addEventListener('toggleEditorView', (e: CustomEvent) => {
+    const { showAssets } = e.detail;
+    assetsPanel?.classList.toggle('show', showAssets);
+  });
+
+  // Make the upload zone handle drag and drop
+  uploadZone?.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    uploadZone.classList.add('dragover');
+  });
+
+  uploadZone?.addEventListener('dragleave', () => {
+    uploadZone.classList.remove('dragover');
+  });
+
+  uploadZone?.addEventListener('drop', (e) => {
+    e.preventDefault();
+    uploadZone.classList.remove('dragover');
+    if (e.dataTransfer?.files) {
+      handleFiles({ target: { files: e.dataTransfer.files } });
+    }
+  });
+
+  // Handle file input change
+  fileInput?.addEventListener('change', handleFiles);
+
+  // Handle click on upload zone
+  uploadZone?.addEventListener('click', () => {
+    fileInput?.click();
+  });
+
+  function handleFiles(e: any) {
+    const files = e.target.files;
+    if (!files) return;
+
+    Array.from(files).forEach((file: File) => {
+      const item = document.createElement('div');
+      item.className = 'asset-item';
+      
+      const isImage = file.type.startsWith('image/');
+      const imageUrl = isImage ? URL.createObjectURL(file) : null;
+      
+      item.innerHTML = `
+        <div class="asset-preview">
+          ${imageUrl ? 
+            `<img src="${imageUrl}" alt="${file.name}" style="height: 120px;" />` : 
+            `<i class="ph ph-file-text preview-icon" style="font-size: 3rem;"></i>`
+          }
+          <div class="overlay">
+            <div class="asset-actions">
+              <button class="asset-action copy-url" title="Copy URL">
+                <i class="ph ph-link"></i>
+              </button>
+              <button class="asset-action insert" title="Insert at cursor">
+                <i class="ph ph-arrow-square-in"></i>
+              </button>
+              <button class="asset-action delete" title="Delete">
+                <i class="ph ph-trash"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+        <div class="asset-info">
+          <span class="asset-name">${file.name}</span>
+        </div>
+      `;
+
+      // Add click handlers
+      const copyUrlBtn = item.querySelector('.copy-url');
+      const insertBtn = item.querySelector('.insert');
+      const deleteBtn = item.querySelector('.delete');
+
+      copyUrlBtn?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        navigator.clipboard.writeText(imageUrl || file.name).then(() => {
+          copyUrlBtn.innerHTML = '<i class="ph ph-check"></i>';
+          setTimeout(() => {
+            copyUrlBtn.innerHTML = '<i class="ph ph-link"></i>';
+          }, 2000);
+        });
+      });
+
+      insertBtn?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        // Dispatch an event to insert the URL at cursor
+        window.dispatchEvent(new CustomEvent('insertAtCursor', {
+          detail: { content: imageUrl || file.name }
+        }));
+        // Show feedback
+        insertBtn.innerHTML = '<i class="ph ph-check"></i>';
+        setTimeout(() => {
+          insertBtn.innerHTML = '<i class="ph ph-arrow-square-in"></i>';
+        }, 2000);
+      });
+
+      deleteBtn?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        item.remove();
+      });
+      
+      assetsList?.appendChild(item);
+    });
+  }
+</script>

@@ -1,0 +1,20 @@
+---
+import PreviewControls from './PreviewControls.astro';
+import PreviewFrame from './PreviewFrame.astro';
+---
+
+<div class="preview-container">
+  <PreviewControls />
+  <PreviewFrame />
+</div>
+
+<style>
+  .preview-container {
+    background: var(--surface);
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+</style>

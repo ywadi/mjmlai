@@ -1,0 +1,165 @@
+---
+import EditorControls from './controls/EditorControls.astro';
+import AssetPanel from './assets/AssetPanel.astro';
+---
+
+<div class="editor">
+  <EditorControls />
+  <div class="editor-container">
+    <AssetPanel />
+    <div id="editor" class="editor-content"></div>
+  </div>
+</div>
+
+<style>
+  .editor {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .editor-container {
+    flex: 1;
+    display: flex;
+    overflow: hidden;
+  }
+
+  .editor-content {
+    flex: 1;
+    height: 100%;
+    padding: 1rem;
+    overflow: auto;
+  }
+
+  :global(.cm-editor) {
+    height: 100%;
+  }
+</style>
+
+<script>
+  import { EditorView, basicSetup } from 'codemirror';
+  import { xml } from '@codemirror/lang-xml';
+  import { oneDark } from '@codemirror/theme-one-dark';
+
+  let editorView: EditorView;
+
+  // Initialize editor after DOM load
+  document.addEventListener('DOMContentLoaded', () => {
+    const editor = document.getElementById('editor');
+    if (!editor) return;
+
+    // Add drop zone styling
+    editor.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      e.dataTransfer.dropEffect = 'copy';
+      editor.classList.add('drop-target');
+    });
+
+    editor.addEventListener('dragleave', (e) => {
+      e.stopPropagation();
+      editor.classList.remove('drop-target');
+    });
+
+    editor.addEventListener('drop', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      editor.classList.remove('drop-target');
+
+      // Get the URL from the drag data
+      const url = e.dataTransfer.getData('text/plain');
+
+      if (url && editorView) {
+        // Get the editor content element
+        const scroller = editor.querySelector('.cm-scroller');
+        if (!scroller) return;
+
+        // Calculate position relative to the content area
+        const rect = scroller.getBoundingClientRect();
+        const x = e.clientX - rect.left + scroller.scrollLeft;
+        const y = e.clientY - rect.top + scroller.scrollTop;
+
+        // Get position in the document
+        const pos = editorView.posAtCoords({ x, y });
+        
+        if (pos !== null) {
+          editorView.dispatch({
+            changes: { from: pos, insert: url }
+          });
+          // Focus editor after drop
+          editorView.focus();
+        }
+      }
+    });
+
+    const defaultMJML = `<mjml>
+      <mj-head>
+        <mj-attributes>
+          <mj-text font-family="helvetica" />
+        </mj-attributes>
+      </mj-head>
+      <mj-body>
+        <mj-section>
+          <mj-column>
+            <mj-text>Hello World</mj-text>
+          </mj-column>
+        </mj-section>
+      </mj-body>
+    </mjml>`;
+
+    // Initialize CodeMirror
+    editorView = new EditorView({
+      doc: defaultMJML,
+      extensions: [
+        basicSetup,
+        xml(),
+        oneDark,
+        EditorView.theme({
+          '&': { height: '100%' },
+          '.cm-scroller': { overflow: 'auto' }
+        })
+      ],
+      parent: editor
+    });
+
+    // Function to dispatch editor content
+    const dispatchContent = (content: string) => {
+      const event = new CustomEvent('editorChange', {
+        detail: { content }
+      });
+      window.dispatchEvent(event);
+    };
+
+    // Listen for insertAtCursor events
+    window.addEventListener('insertAtCursor', (e: CustomEvent) => {
+      if (editorView && e.detail?.content) {
+        const pos = editorView.state.selection.main.head;
+        editorView.dispatch({
+          changes: { from: pos, insert: e.detail.content }
+        });
+        editorView.focus();
+      }
+    });
+
+    // Dispatch initial content after a short delay
+    setTimeout(() => {
+      dispatchContent(defaultMJML);
+    }, 100);
+
+    // Listen for editor changes
+    editorView.dom.addEventListener('keyup', () => {
+      const content = editorView.state.doc.toString();
+      dispatchContent(content);
+    });
+
+    // Handle view toggling
+    window.addEventListener('toggleEditorView', (e: CustomEvent) => {
+      const { showAssets } = e.detail;
+      // Handle view toggle if needed
+    });
+  });
+</script>

@@ -1,0 +1,123 @@
+---
+---
+
+<div class="preview-frame-wrapper">
+  <iframe class="preview-frame" id="preview"></iframe>
+</div>
+
+<script>
+  import mjml2html from 'mjml-browser';
+
+  const preview = document.getElementById('preview');
+  let currentView = 'desktop';
+  
+  // Add initial view class
+  preview?.classList.add(currentView);
+
+  // Update preview with MJML content
+  const updatePreview = (content) => {
+    if (!preview) return;
+
+    try {
+      const result = mjml2html(content, {
+        validationLevel: 'soft',
+        keepComments: false,
+        beautify: true
+      });
+
+      if (result.errors?.length) {
+        preview.srcdoc = `
+          <div style="padding: 2rem; color: #ef4444; font-family: system-ui, sans-serif;">
+            <h3 style="margin-bottom: 1rem;">Error</h3>
+            ${result.errors.map(err => `<p style="margin-bottom: 0.5rem;">${err.message || err}</p>`).join('')}
+          </div>
+        `;
+        return;
+      }
+
+      // Remove existing view classes
+      preview.classList.remove('desktop', 'mobile', 'code');
+      // Add current view class
+      preview.classList.add(currentView);
+
+      if (currentView === 'code') {
+        preview.srcdoc = `
+          <pre style="padding: 2rem; margin: 0; white-space: pre-wrap; word-break: break-all; font-family: 'Space Grotesk', monospace; font-size: 14px; line-height: 1.5;">
+            ${result.html.replace(/</g, '&lt;').replace(/>/g, '&gt;')}
+          </pre>
+        `;
+      } else {
+        const styleTag = `
+          <style>
+            body { margin: 0; }
+            * { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+          </style>
+        `;
+        preview.srcdoc = styleTag + result.html;
+      }
+    } catch (error) {
+      preview.srcdoc = `
+        <div style="padding: 2rem; color: #ef4444; font-family: system-ui, sans-serif;">
+          <h3 style="margin-bottom: 1rem;">Error</h3>
+          <p>${error.message || 'Failed to process MJML'}</p>
+        </div>
+      `;
+    }
+  };
+
+  // Listen for editor changes
+  window.addEventListener('editorChange', (event) => {
+    updatePreview(event.detail.content);
+  });
+
+  // Listen for preview mode changes
+  window.addEventListener('previewModeChange', (event) => {
+    currentView = event.detail.mode;
+    const editorContent = document.querySelector('.cm-editor')?.innerText;
+    if (editorContent) {
+      updatePreview(editorContent);
+    }
+  });
+</script>
+
+<style>
+  .preview-frame-wrapper {
+    flex: 1;
+    overflow: hidden;
+    position: relative;
+    background: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+  }
+
+  .preview-frame {
+    width: 100%;
+    height: 100%;
+    border: none;
+    background: white;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  }
+
+  .preview-frame.mobile {
+    width: 375px;
+    height: 667px;
+    border-radius: 32px;
+    border: 12px solid #334155;
+  }
+
+  .preview-frame.desktop {
+    width: 100%;
+    max-width: 1024px;
+    height: 100%;
+    border-radius: 8px;
+    border: none;
+  }
+
+  .preview-frame.code {
+    border-radius: 8px;
+    border: 1px solid var(--border);
+  }
+</style>

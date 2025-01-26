@@ -1,0 +1,24 @@
+{
+  "name": "mjml-editor",
+  "type": "module",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "dev": "astro dev",
+    "start": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview",
+    "astro": "astro"
+  },
+  "dependencies": {
+    "@codemirror/lang-javascript": "^6.2.1",
+    "@codemirror/lang-xml": "^6.0.2",
+    "@codemirror/state": "^6.5.1",
+    "@codemirror/theme-one-dark": "^6.1.2",
+    "@fontsource/space-grotesk": "^5.0.16",
+    "@phosphor-icons/web": "^2.0.3",
+    "astro": "^4.15.3",
+    "codemirror": "^6.0.1",
+    "mjml-browser": "^4.14.1"
+  }
+}

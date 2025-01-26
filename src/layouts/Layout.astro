@@ -1,0 +1,115 @@
+---
+import '@fontsource/space-grotesk/400.css';
+const { title } = Astro.props;
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="description" content="MJML Live Editor" />
+    <meta name="viewport" content="width=device-width" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.0.3/src/regular/style.css" />
+    <title>{title}</title>
+  </head>
+  <body>
+    <slot />
+  </body>
+</html>
+
+<style is:global>
+  :root {
+    --primary: #6366f1;
+    --primary-hover: #818cf8;
+    --background: #0f172a;
+    --surface: #1e293b;
+    --text: #f8fafc;
+    --border: #334155;
+  }
+
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+
+  html {
+    font-family: 'Space Grotesk', system-ui, sans-serif;
+    background: var(--background);
+    color: var(--text);
+  }
+
+  body {
+    min-height: 100vh;
+  }
+
+  .editor-container {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    height: calc(100vh - 60px);
+    padding: 1rem;
+  }
+
+  .preview-container {
+    background: var(--surface);
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .preview-frame-wrapper {
+    flex: 1;
+    overflow: hidden;
+    position: relative;
+    background: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+  }
+
+  .preview-frame {
+    width: 100%;
+    height: 100%;
+    border: none;
+    background: white;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  }
+
+  .preview-frame.mobile {
+    width: 375px;
+    height: 667px;
+    border-radius: 32px;
+    border: 12px solid #334155;
+  }
+
+  .preview-frame.desktop {
+    width: 100%;
+    max-width: 1024px;
+    height: 100%;
+    border-radius: 8px;
+    border: none;
+  }
+
+  .preview-frame.code {
+    border-radius: 8px;
+    border: 1px solid var(--border);
+  }
+
+  .editor {
+    background: var(--surface);
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    height: 100%;
+    overflow: hidden;
+  }
+
+  .cm-editor {
+    height: 100%;
+  }
+</style>

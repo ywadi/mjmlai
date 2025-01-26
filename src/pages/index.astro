@@ -1,0 +1,315 @@
+---
+import Layout from '../layouts/Layout.astro';
+import Editor from '../components/editor/Editor.astro';
+import Preview from '../components/preview/Preview.astro';
+import Chat from '../components/chat/Chat.astro';
+---
+
+<Layout title="MJML Live Editor">
+  <header class="app-header">
+    <div class="app-title">
+      <i class="ph ph-envelope"></i>
+      <h1>MJML Editor</h1>
+    </div>
+    <div class="app-actions">
+      <button class="action-button" id="copyHtml">
+        <i class="ph ph-copy"></i>
+        Copy HTML
+      </button>
+      <button class="action-button" id="downloadHtml">
+        <i class="ph ph-download"></i>
+        Download
+      </button>
+      <a href="https://documentation.mjml.io/" target="_blank" class="action-button">
+        <i class="ph ph-book-open"></i>
+        Docs
+      </a>
+      <div class="profile-menu">
+        <button class="profile-button" id="profileButton" aria-expanded="false">
+          <div class="avatar">JD</div>
+          <i class="ph ph-caret-down"></i>
+        </button>
+        <div class="profile-dropdown" id="profileDropdown">
+          <div class="profile-info">
+            <div class="avatar">JD</div>
+            <div class="user-details">
+              <span class="user-name">John Doe</span>
+              <span class="user-email">john@example.com</span>
+            </div>
+          </div>
+          <div class="dropdown-divider"></div>
+          <a href="#" class="dropdown-item">
+            <i class="ph ph-user"></i>
+            Profile Settings
+          </a>
+          <a href="#" class="dropdown-item">
+            <i class="ph ph-gear"></i>
+            Preferences
+          </a>
+          <div class="dropdown-divider"></div>
+          <a href="#" class="dropdown-item text-danger">
+            <i class="ph ph-sign-out"></i>
+            Sign Out
+          </a>
+        </div>
+      </div>
+    </div>
+  </header>
+  <main>
+    <div class="editor-container">
+      <Editor />
+      <Preview />
+    </div>
+  </main>
+  <Chat />
+</Layout>
+
+<script>
+  import mjml2html from 'mjml-browser';
+
+  // Profile menu functionality
+  const profileButton = document.getElementById('profileButton');
+  const profileDropdown = document.getElementById('profileDropdown');
+
+  profileButton?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const isExpanded = profileButton.getAttribute('aria-expanded') === 'true';
+    profileButton.setAttribute('aria-expanded', !isExpanded);
+    profileDropdown?.classList.toggle('show');
+  });
+
+  // Close dropdown when clicking outside
+  document.addEventListener('click', (e) => {
+    if (!profileDropdown?.contains(e.target as Node)) {
+      profileButton?.setAttribute('aria-expanded', 'false');
+      profileDropdown?.classList.remove('show');
+    }
+  });
+
+  // Handle Copy HTML button
+  document.getElementById('copyHtml')?.addEventListener('click', async () => {
+    const editorContent = document.querySelector('.cm-editor')?.innerText;
+    if (!editorContent) return;
+
+    try {
+      const result = mjml2html(editorContent);
+      await navigator.clipboard.writeText(result.html);
+      
+      const button = document.getElementById('copyHtml');
+      const originalText = button.innerHTML;
+      button.innerHTML = '<i class="ph ph-check"></i> Copied!';
+      
+      setTimeout(() => {
+        button.innerHTML = originalText;
+      }, 2000);
+    } catch (error) {
+      console.error('Failed to copy HTML:', error);
+    }
+  });
+
+  // Handle Download HTML button
+  document.getElementById('downloadHtml')?.addEventListener('click', () => {
+    const editorContent = document.querySelector('.cm-editor')?.innerText;
+    if (!editorContent) return;
+
+    try {
+      const result = mjml2html(editorContent);
+      const blob = new Blob([result.html], { type: 'text/html' });
+      const url = URL.createObjectURL(blob);
+      
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'email-template.html';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Failed to download HTML:', error);
+    }
+  });
+</script>
+
+<style>
+  .app-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1rem;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .app-title {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    color: var(--text);
+  }
+
+  .app-title i {
+    font-size: 1.5rem;
+    color: var(--primary);
+  }
+
+  .app-title h1 {
+    font-size: 1.25rem;
+    font-weight: 500;
+  }
+
+  .app-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .action-button {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 0.5rem 1rem;
+    border-radius: 6px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    transition: all 0.2s ease;
+    font-size: 0.875rem;
+    text-decoration: none;
+  }
+
+  .action-button:hover {
+    background: var(--primary-hover);
+    border-color: var(--primary-hover);
+  }
+
+  .action-button i {
+    font-size: 1.25rem;
+  }
+
+  .profile-menu {
+    position: relative;
+    margin-left: 0.5rem;
+  }
+
+  .profile-button {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 0.25rem;
+    padding-left: 0.5rem;
+    border-radius: 6px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    transition: all 0.2s ease;
+  }
+
+  .profile-button:hover {
+    background: var(--primary-hover);
+    border-color: var(--primary-hover);
+  }
+
+  .avatar {
+    width: 2rem;
+    height: 2rem;
+    background: var(--primary);
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: white;
+  }
+
+  .profile-dropdown {
+    position: absolute;
+    top: calc(100% + 0.5rem);
+    right: 0;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    width: 240px;
+    padding: 0.5rem;
+    display: none;
+    box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1);
+  }
+
+  .profile-dropdown.show {
+    display: block;
+  }
+
+  .profile-info {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.5rem;
+  }
+
+  .user-details {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+
+  .user-name {
+    font-weight: 500;
+    color: var(--text);
+  }
+
+  .user-email {
+    font-size: 0.875rem;
+    color: var(--text);
+    opacity: 0.7;
+  }
+
+  .dropdown-divider {
+    height: 1px;
+    background: var(--border);
+    margin: 0.5rem 0;
+  }
+
+  .dropdown-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.5rem;
+    color: var(--text);
+    text-decoration: none;
+    border-radius: 4px;
+    transition: all 0.2s ease;
+  }
+
+  .dropdown-item:hover {
+    background: var(--primary-hover);
+  }
+
+  .dropdown-item i {
+    font-size: 1.25rem;
+  }
+
+  .text-danger {
+    color: #ef4444;
+  }
+
+  .text-danger:hover {
+    background: #ef4444;
+    color: white;
+  }
+
+  .editor-container {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    height: calc(100vh - 124px);
+    padding: 1rem;
+    padding-bottom: 0;
+  }
+
+  main {
+    height: calc(100vh - 64px);
+    overflow: hidden;
+  }
+</style>
