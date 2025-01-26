@@ -2,21 +2,43 @@
 ---
 
 <div class="preview-header">
-  <button class="preview-button" data-view="desktop">
-    <i class="ph ph-monitor"></i>
-    Desktop
-  </button>
-  <button class="preview-button" data-view="mobile">
-    <i class="ph ph-device-mobile"></i>
-    Mobile
-  </button>
-  <button class="preview-button" data-view="code">
-    <i class="ph ph-code"></i>
-    HTML
+  <div class="preview-controls">
+    <button class="preview-button" data-view="desktop">
+      <i class="ph ph-monitor"></i>
+      Desktop
+    </button>
+    <button class="preview-button" data-view="mobile">
+      <i class="ph ph-device-mobile"></i>
+      Mobile
+    </button>
+    <button class="preview-button" data-view="code">
+      <i class="ph ph-code"></i>
+      HTML
+    </button>
+  </div>
+  <button class="fix-error-button" id="fixErrorButton" style="display: none;">
+    <i class="ph ph-robot"></i>
+    Fix Error
   </button>
 </div>
 
 <style>
+  .preview-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    padding: 0.75rem;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+  }
+
+  .preview-controls {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
   .preview-button {
     background: transparent;
     border: 1px solid var(--border);
@@ -45,19 +67,34 @@
     font-size: 1.25rem;
   }
 
-  .preview-header {
+  .fix-error-button {
+    background: #ef4444;
+    border: none;
+    color: white;
+    padding: 0.5rem 1rem;
+    border-radius: 6px;
+    cursor: pointer;
     display: flex;
     align-items: center;
     gap: 0.5rem;
-    padding: 0.75rem;
-    border-bottom: 1px solid var(--border);
-    background: var(--surface);
+    transition: all 0.2s ease;
+    font-size: 0.875rem;
+  }
+
+  .fix-error-button:hover {
+    background: #dc2626;
+  }
+
+  .fix-error-button i {
+    font-size: 1.25rem;
   }
 </style>
 
 <script>
   const previewButtons = document.querySelectorAll('.preview-button');
+  const fixErrorButton = document.getElementById('fixErrorButton');
   let currentView = 'desktop';
+  let currentError = null;
 
   // Function to dispatch preview mode change
   const dispatchPreviewMode = (mode) => {
@@ -84,5 +121,27 @@
       currentView = button.dataset.view;
       dispatchPreviewMode(currentView);
     });
+  });
+
+  // Listen for MJML errors
+  window.addEventListener('mjmlError', (event) => {
+    currentError = event.detail.error;
+    if (fixErrorButton) {
+      fixErrorButton.style.display = currentError ? 'flex' : 'none';
+    }
+  });
+
+  // Fix Error button click handler
+  fixErrorButton?.addEventListener('click', () => {
+    if (!currentError) return;
+
+    // Create a custom event to send the error to the chat
+    const event = new CustomEvent('chatMessage', {
+      detail: {
+        message: `Fix the following Errors:\n${currentError}`,
+        type: 'user'
+      }
+    });
+    window.dispatchEvent(event);
   });
 </script>

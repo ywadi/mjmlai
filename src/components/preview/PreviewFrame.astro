@@ -26,6 +26,13 @@
       });
 
       if (result.errors?.length) {
+        // Dispatch error event
+        window.dispatchEvent(new CustomEvent('mjmlError', {
+          detail: {
+            error: result.errors.map(err => err.message || err).join('\n')
+          }
+        }));
+
         preview.srcdoc = `
           <div style="padding: 2rem; color: #ef4444; font-family: system-ui, sans-serif;">
             <h3 style="margin-bottom: 1rem;">Error</h3>
@@ -34,6 +41,13 @@
         `;
         return;
       }
+
+      // Clear error state when there are no errors
+      window.dispatchEvent(new CustomEvent('mjmlError', {
+        detail: {
+          error: null
+        }
+      }));
 
       // Remove existing view classes
       preview.classList.remove('desktop', 'mobile', 'code');

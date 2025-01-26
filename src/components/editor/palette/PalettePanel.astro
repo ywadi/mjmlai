@@ -1,0 +1,327 @@
+---
+---
+
+<div id="palettePanel" class="palette-panel">
+  <div class="palette-content">
+    <div class="color-input-section">
+      <div class="color-picker-wrapper">
+        <input type="color" id="colorPicker" class="color-picker" value="#7aa2f7" />
+        <input type="text" id="colorInput" class="color-input" value="#7aa2f7" placeholder="#000000" />
+      </div>
+      <button class="add-color-button" id="addColorButton">
+        <i class="ph ph-plus"></i>
+        Add Color
+      </button>
+    </div>
+    <div class="palette-list" id="paletteList">
+      <!-- Colors will be populated here -->
+    </div>
+  </div>
+</div>
+
+<style is:global>
+  .palette-panel {
+    width: 0;
+    background: var(--background);
+    border-right: 1px solid var(--border);
+    overflow: hidden;
+    transition: width 0.3s ease;
+  }
+
+  .palette-panel.show {
+    width: 300px;
+  }
+
+  .palette-content {
+    width: 300px;
+    height: 100%;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    padding: 1rem;
+  }
+
+  .color-input-section {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    padding: 1rem;
+    background: var(--surface);
+    border-radius: 8px;
+    border: 1px solid var(--border);
+  }
+
+  .color-picker-wrapper {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+  }
+
+  .color-picker {
+    width: 40px;
+    height: 40px;
+    padding: 0;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    background: none;
+  }
+
+  .color-picker::-webkit-color-swatch-wrapper {
+    padding: 0;
+  }
+
+  .color-picker::-webkit-color-swatch {
+    border: 1px solid var(--border);
+    border-radius: 6px;
+  }
+
+  .color-input {
+    flex: 1;
+    background: var(--background);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 0.5rem 0.75rem;
+    border-radius: 6px;
+    font-family: 'Space Grotesk', monospace;
+    font-size: 0.875rem;
+  }
+
+  .add-color-button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0.5rem;
+    background: var(--primary);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.2s ease;
+    font-size: 0.875rem;
+  }
+
+  .add-color-button:hover {
+    background: var(--primary-hover);
+  }
+
+  .palette-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    padding: 0.5rem;
+  }
+
+  .color-item {
+    position: relative;
+    width: calc(50% - 0.25rem);
+    aspect-ratio: 1;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: transform 0.2s ease;
+    overflow: hidden;
+  }
+
+  .color-item:hover {
+    transform: scale(1.05);
+  }
+
+  .color-item .color-preview {
+    width: 100%;
+    height: 100%;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+  }
+
+  .color-item .color-overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+  }
+
+  .color-item:hover .color-overlay {
+    opacity: 1;
+  }
+
+  .color-action {
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    border: none;
+    background: rgba(255, 255, 255, 0.1);
+    color: white;
+    cursor: pointer;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+  }
+
+  .color-action:hover {
+    background: rgba(255, 255, 255, 0.2);
+    transform: scale(1.1);
+  }
+
+  .color-action.copy {
+    color: #a5b4fc;
+  }
+
+  .color-action.insert {
+    color: #86efac;
+  }
+
+  .color-action.delete {
+    color: #fca5a5;
+  }
+
+  .color-action i {
+    font-size: 1rem;
+  }
+</style>
+
+<script>
+  const palettePanel = document.getElementById('palettePanel');
+  const colorPicker = document.getElementById('colorPicker') as HTMLInputElement;
+  const colorInput = document.getElementById('colorInput') as HTMLInputElement;
+  const addColorButton = document.getElementById('addColorButton');
+  const paletteList = document.getElementById('paletteList');
+
+  // Load saved colors from localStorage
+  const loadSavedColors = () => {
+    try {
+      const savedColors = JSON.parse(localStorage.getItem('mjmlPalette') || '[]');
+      console.log('Loading saved colors:', savedColors); // Debug log
+      savedColors.forEach(addColorToList);
+    } catch (error) {
+      console.error('Error loading saved colors:', error);
+    }
+  };
+
+  // Get current palette colors
+  const getPaletteColors = () => {
+    const colors = [];
+    const items = paletteList?.querySelectorAll('.color-preview') || [];
+    items.forEach(item => {
+      const color = item.getAttribute('data-color');
+      if (color) colors.push(color);
+    });
+    console.log('Getting palette colors:', colors);
+    return colors;
+  };
+
+  // Save colors to localStorage
+  const saveColors = () => {
+    const colors = getPaletteColors();
+    console.log('Saving colors to localStorage:', colors);
+    localStorage.setItem('mjmlPalette', JSON.stringify(colors));
+  };
+
+  // Listen for palette colors request
+  document.addEventListener('DOMContentLoaded', () => {
+    window.addEventListener('getPaletteColors', (e) => {
+      const colors = getPaletteColors();
+      console.log('Received getPaletteColors event, sending colors:', colors);
+      window.dispatchEvent(new CustomEvent('paletteColorsResponse', {
+        detail: { colors }
+      }));
+    });
+
+    // Load saved colors
+    loadSavedColors();
+  });
+
+  // Handle view toggling
+  window.addEventListener('toggleEditorView', (e: CustomEvent) => {
+    const { showPalette } = e.detail;
+    palettePanel?.classList.toggle('show', showPalette);
+  });
+
+  // Sync color picker and input
+  colorPicker?.addEventListener('input', (e) => {
+    const color = (e.target as HTMLInputElement).value;
+    if (colorInput) colorInput.value = color;
+  });
+
+  colorInput?.addEventListener('input', (e) => {
+    const color = (e.target as HTMLInputElement).value;
+    if (colorPicker) colorPicker.value = color;
+  });
+
+  // Add color to palette
+  const addColorToList = (color: string) => {
+    if (!color) return;
+    
+    const item = document.createElement('div');
+    item.className = 'color-item';
+    
+    item.innerHTML = `
+      <div class="color-preview" style="background-color: ${color}" data-color="${color}"></div>
+      <div class="color-overlay">
+        <button class="color-action copy" title="Copy color">
+          <i class="ph ph-copy"></i>
+        </button>
+        <button class="color-action insert" title="Insert at cursor">
+          <i class="ph ph-arrow-square-in"></i>
+        </button>
+        <button class="color-action delete" title="Delete">
+          <i class="ph ph-trash"></i>
+        </button>
+      </div>
+    `;
+
+    // Add click handlers
+    const copyBtn = item.querySelector('.copy');
+    const insertBtn = item.querySelector('.insert');
+    const deleteBtn = item.querySelector('.delete');
+
+    copyBtn?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      navigator.clipboard.writeText(color).then(() => {
+        copyBtn.innerHTML = '<i class="ph ph-check"></i>';
+        setTimeout(() => {
+          copyBtn.innerHTML = '<i class="ph ph-copy"></i>';
+        }, 2000);
+      });
+    });
+
+    insertBtn?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      window.dispatchEvent(new CustomEvent('insertAtCursor', {
+        detail: { content: color }
+      }));
+      insertBtn.innerHTML = '<i class="ph ph-check"></i>';
+      setTimeout(() => {
+        insertBtn.innerHTML = '<i class="ph ph-arrow-square-in"></i>';
+      }, 2000);
+    });
+
+    deleteBtn?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      item.remove();
+      saveColors();
+    });
+
+    paletteList?.appendChild(item);
+    saveColors();
+  };
+
+  // Add color button click handler
+  addColorButton?.addEventListener('click', () => {
+    const color = colorInput?.value.trim();
+    if (color) {
+      console.log('Adding new color:', color);
+      addColorToList(color);
+      const colors = getPaletteColors();
+      console.log('Updated palette colors:', colors);
+    }
+  });
+</script>

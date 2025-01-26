@@ -24,7 +24,7 @@
           placeholder="Type your message..."
           rows="1"
         ></textarea>
-        <button class="send-button">
+        <button class="send-button" id="sendButton">
           <i class="ph ph-paper-plane-right"></i>
         </button>
       </div>
@@ -39,31 +39,40 @@
   const collapseButton = chatContainer?.querySelector('.collapse-button');
   const messageInput = document.getElementById('messageInput') as HTMLTextAreaElement;
   const messagesContainer = document.getElementById('messagesContainer');
-  const sendButton = chatContainer?.querySelector('.send-button');
+  const sendButton = document.getElementById('sendButton');
 
   // Store thread ID
   let currentThreadId: string | null = null;
+  let currentController: AbortController | null = null;
+  let isProcessing = false;
   
   // Store current editor content
   let currentEditorContent: string = '';
 
-  // Add initial welcome message
-  document.addEventListener('DOMContentLoaded', () => {
-    const welcomeMessage = `Hello! I'm your AI assistant. I can help you with:
-• Writing and editing MJML code
-• Explaining email template concepts
-• Suggesting improvements
-• Debugging issues
+  // Function to set processing state
+  const setProcessingState = (processing: boolean) => {
+    isProcessing = processing;
+    if (messageInput) {
+      messageInput.disabled = processing;
+      messageInput.style.opacity = processing ? '0.7' : '1';
+    }
+    if (sendButton) {
+      const icon = sendButton.querySelector('i');
+      if (icon) {
+        icon.className = processing ? 'ph ph-stop-circle' : 'ph ph-paper-plane-right';
+        icon.style.color = processing ? '#ef4444' : 'inherit';
+      }
+    }
+  };
 
-How can I help you today?`;
-    addMessage(welcomeMessage, 'ai');
-  });
-
-  // Listen for editor content changes
-  window.addEventListener('editorContentChanged', ((event: CustomEvent) => {
-    console.log('Editor content changed:', event.detail.content); // Debug log
-    currentEditorContent = event.detail.content;
-  }) as EventListener);
+  // Function to cancel current request
+  const cancelRequest = () => {
+    if (currentController) {
+      currentController.abort();
+      currentController = null;
+      setProcessingState(false);
+    }
+  };
 
   // Function to get latest editor content
   async function getLatestEditorContent(): Promise<string> {
@@ -89,6 +98,133 @@ How can I help you today?`;
     });
   }
 
+  // Function to get palette colors
+  async function getPaletteColors(): Promise<string[]> {
+    return new Promise((resolve) => {
+      let resolved = false;
+      console.log('Requesting palette colors...');
+      
+      const handler = (event: CustomEvent) => {
+        if (resolved) return;
+        resolved = true;
+        window.removeEventListener('paletteColorsResponse', handler as EventListener);
+        const colors = event.detail.colors || [];
+        console.log('Received palette colors response:', colors);
+        resolve(colors);
+      };
+      
+      window.addEventListener('paletteColorsResponse', handler as EventListener);
+      window.dispatchEvent(new CustomEvent('getPaletteColors'));
+      
+      // Fallback after timeout
+      setTimeout(() => {
+        if (resolved) return;
+        resolved = true;
+        window.removeEventListener('paletteColorsResponse', handler as EventListener);
+        console.log('Palette colors request timed out, using empty array');
+        resolve([]);
+      }, 1000); // Increased timeout
+    });
+  }
+
+  // Add initial welcome message
+  document.addEventListener('DOMContentLoaded', () => {
+    const welcomeMessage = `Hello! I'm your AI assistant. I can help you with:
+• Writing and editing MJML code
+• Explaining email template concepts
+• Suggesting improvements
+• Debugging issues
+
+How can I help you today?`;
+    addMessage(welcomeMessage, 'ai');
+  });
+
+  // Listen for editor content changes
+  window.addEventListener('editorContentChanged', ((event: CustomEvent) => {
+    console.log('Editor content changed:', event.detail.content); // Debug log
+    currentEditorContent = event.detail.content;
+  }) as EventListener);
+
+  // Listen for chat messages from other components
+  window.addEventListener('chatMessage', async (event) => {
+    const { message, type } = event.detail;
+    
+    // Add the message to the chat
+    addMessage(message, type);
+    
+    if (type === 'user') {
+      try {
+        // Get the latest editor content and palette colors
+        console.log('Fetching editor content and palette colors...');
+        const [editorContent, paletteColors] = await Promise.all([
+          getLatestEditorContent(),
+          getPaletteColors()
+        ]);
+        console.log('Fetched palette colors:', paletteColors);
+        
+        // Show loading state
+        const loadingMessage = addMessage('Thinking...', 'ai', true);
+        
+        // Prepare request body
+        const requestBody = {
+          message,
+          currentMjml: editorContent,
+          paletteColors,
+          ...(currentThreadId ? { threadId: currentThreadId } : {})
+        };
+        
+        console.log('Sending request with body:', requestBody);
+
+        // Send message to API
+        const response = await fetch(config.api.chat.url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(requestBody)
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to get response');
+        }
+
+        const data = await response.json();
+        
+        // Remove loading message
+        loadingMessage.remove();
+
+        // Store thread ID if not already set
+        if (!currentThreadId && data.threadId) {
+          currentThreadId = data.threadId;
+        }
+
+        // Parse the output JSON string
+        try {
+          const output = JSON.parse(data.output);
+          
+          // Update editor if MJML is not empty
+          if (output.mjml && output.mjml.trim() !== '') {
+            const event = new CustomEvent('updateEditor', {
+              detail: { content: output.mjml }
+            });
+            window.dispatchEvent(event);
+          }
+
+          // Add AI response message
+          if (output.message) {
+            addMessage(output.message, 'ai');
+          }
+        } catch (parseError) {
+          console.error('Error parsing output JSON:', parseError);
+          addMessage('Sorry, I encountered an error processing the response. Please try again.', 'ai');
+        }
+      } catch (error) {
+        console.error('Error sending message:', error);
+        addMessage('Sorry, I encountered an error processing your request. Please try again.', 'ai');
+      }
+    }
+  });
+
   // Toggle chat panel
   collapseButton?.addEventListener('click', () => {
     chatContainer?.classList.toggle('collapsed');
@@ -107,16 +243,26 @@ How can I help you today?`;
   messageInput?.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      sendMessage();
+      if (isProcessing) {
+        cancelRequest();
+      } else {
+        sendMessage();
+      }
     }
   });
 
-  // Send message
-  sendButton?.addEventListener('click', sendMessage);
-
   async function sendMessage() {
     const content = messageInput?.value.trim();
-    if (!content) return;
+    if (!content || isProcessing) return;
+
+    // If already processing, cancel the current request
+    if (isProcessing) {
+      cancelRequest();
+      return;
+    }
+
+    // Set processing state
+    setProcessingState(true);
 
     // Add user message
     addMessage(content, 'user');
@@ -126,23 +272,26 @@ How can I help you today?`;
     messageInput.style.height = 'auto';
 
     try {
+      // Get the latest editor content and palette colors
+      console.log('Fetching editor content and palette colors...');
+      const [editorContent, paletteColors] = await Promise.all([
+        getLatestEditorContent(),
+        getPaletteColors()
+      ]);
+      
       // Show loading state
       const loadingMessage = addMessage('Thinking...', 'ai', true);
       
-      // Get latest editor content
-      const editorContent = await getLatestEditorContent();
-      console.log('Sending message with editor content:', editorContent); // Debug log
-      
-      // Prepare request body
-      const requestBody: any = {
-        message: content,
-        currentMjml: editorContent
-      };
-      if (currentThreadId) {
-        requestBody.threadId = currentThreadId;
-      }
+      // Create new abort controller
+      currentController = new AbortController();
 
-      console.log('Sending request body:', requestBody); // Debug log
+      // Prepare request body
+      const requestBody = {
+        message: content,
+        currentMjml: editorContent,
+        paletteColors,
+        ...(currentThreadId ? { threadId: currentThreadId } : {})
+      };
 
       // Send message to API
       const response = await fetch(config.api.chat.url, {
@@ -150,7 +299,8 @@ How can I help you today?`;
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(requestBody)
+        body: JSON.stringify(requestBody),
+        signal: currentController.signal
       });
 
       if (!response.ok) {
@@ -165,18 +315,14 @@ How can I help you today?`;
       // Store thread ID if not already set
       if (!currentThreadId && data.threadId) {
         currentThreadId = data.threadId;
-        console.log('Thread ID set:', currentThreadId);
       }
 
       // Parse the output JSON string
       try {
         const output = JSON.parse(data.output);
-        console.log('Parsed output:', output);
         
         // Update editor if MJML is not empty
         if (output.mjml && output.mjml.trim() !== '') {
-          console.log('Updating editor with MJML:', output.mjml);
-          // Create a new custom event with the MJML content
           const event = new CustomEvent('updateEditor', {
             detail: { content: output.mjml }
           });
@@ -192,10 +338,28 @@ How can I help you today?`;
         addMessage('Sorry, I encountered an error processing the response. Please try again.', 'ai');
       }
     } catch (error) {
-      console.error('Error sending message:', error);
-      addMessage('Sorry, I encountered an error processing your request. Please try again.', 'ai');
+      if (error.name === 'AbortError') {
+        console.log('Request cancelled by user');
+        addMessage('Request cancelled.', 'ai');
+      } else {
+        console.error('Error sending message:', error);
+        addMessage('Sorry, I encountered an error processing your request. Please try again.', 'ai');
+      }
+    } finally {
+      // Reset state
+      currentController = null;
+      setProcessingState(false);
     }
   }
+
+  // Send button click handler
+  sendButton?.addEventListener('click', () => {
+    if (isProcessing) {
+      cancelRequest();
+    } else {
+      sendMessage();
+    }
+  });
 
   function addMessage(content: string, type: 'user' | 'ai', isLoading: boolean = false) {
     const messageDiv = document.createElement('div');
@@ -222,6 +386,23 @@ How can I help you today?`;
 </script>
 
 <style is:global>
+  .chat-container {
+    position: fixed !important;
+    bottom: 1rem !important;
+    right: 1rem !important;
+    width: calc(50vw - 2rem) !important;
+    max-width: 600px !important;
+    min-width: 320px !important;
+    background: #1a1b26 !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    border-radius: 12px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2) !important;
+    z-index: 1000 !important;
+    color: #a9b1d6 !important;
+  }
+
   .chat-content {
     display: flex !important;
     flex-direction: column !important;
@@ -253,6 +434,7 @@ How can I help you today?`;
 
   .message {
     margin-bottom: 0.5rem !important;
+    max-width: 85% !important;
   }
 
   .message:last-child {
@@ -283,10 +465,6 @@ How can I help you today?`;
     white-space: pre-line !important;
   }
 
-  .chat-container {
-    background: #1a1b26 !important;
-  }
-
   .input-wrapper {
     background: #24283b !important;
     border: 1px solid rgba(255, 255, 255, 0.1) !important;
@@ -313,6 +491,14 @@ How can I help you today?`;
     max-height: 500px;
     z-index: 1000;
     color: #a9b1d6;
+  }
+
+  .chat-container.collapsed {
+    max-height: 60px;
+  }
+
+  .chat-container.collapsed .chat-content {
+    display: none;
   }
 
   .chat-header {
@@ -418,10 +604,6 @@ How can I help you today?`;
 
   .send-button i {
     font-size: 1.25rem;
-  }
-
-  .chat-container.collapsed .chat-content {
-    display: none;
   }
 
   /* Scrollbar styles */

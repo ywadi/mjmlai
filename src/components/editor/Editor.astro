@@ -1,12 +1,14 @@
 ---
 import EditorControls from './controls/EditorControls.astro';
 import AssetPanel from './assets/AssetPanel.astro';
+import PalettePanel from './palette/PalettePanel.astro';
 ---
 
 <div class="editor">
   <EditorControls />
   <div class="editor-container">
     <AssetPanel />
+    <PalettePanel />
     <div id="editor" class="editor-content"></div>
   </div>
 </div>

@@ -7,6 +7,10 @@
       <i class="ph ph-image"></i>
       <span>Assets</span>
     </button>
+    <button class="control-button" id="paletteButton" aria-label="Toggle color palette">
+      <i class="ph ph-palette"></i>
+      <span>Palette</span>
+    </button>
     <button class="control-button" aria-label="Editor settings">
       <i class="ph ph-gear"></i>
     </button>
@@ -15,14 +19,33 @@
 
 <script>
   const assetsButton = document.getElementById('assetsButton');
+  const paletteButton = document.getElementById('paletteButton');
 
   // Toggle between editor and assets view
   assetsButton?.addEventListener('click', () => {
     assetsButton.classList.toggle('active');
+    paletteButton?.classList.remove('active');
     
     // Dispatch custom event for view toggle
     window.dispatchEvent(new CustomEvent('toggleEditorView', {
-      detail: { showAssets: assetsButton.classList.contains('active') }
+      detail: { 
+        showAssets: assetsButton.classList.contains('active'),
+        showPalette: false
+      }
+    }));
+  });
+
+  // Toggle palette view
+  paletteButton?.addEventListener('click', () => {
+    paletteButton.classList.toggle('active');
+    assetsButton?.classList.remove('active');
+    
+    // Dispatch custom event for view toggle
+    window.dispatchEvent(new CustomEvent('toggleEditorView', {
+      detail: { 
+        showAssets: false,
+        showPalette: paletteButton.classList.contains('active')
+      }
     }));
   });
 </script>
